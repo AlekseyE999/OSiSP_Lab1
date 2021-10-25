@@ -9,7 +9,6 @@
 #define DOWN 12
 
 const wchar_t CLASS_NAME[] = L"MyWindowClass";
-
 const int RectSize = 50;
 const int XSprite = 100;
 const int YSprite = 100;
@@ -17,13 +16,9 @@ const int YSprite = 100;
 RECT SpriteRect = { XSprite, YSprite, XSprite + RectSize, YSprite + RectSize };
 RECT MainRect;
 
-
-
 LRESULT CALLBACK WindProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 void moveSprite(DIRECTION direction, int offset);
 int getAllowedOffset(DIRECTION direction, int offset);
-
-
 
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PWSTR args, int nCmdShow)
 {
@@ -44,7 +39,6 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PWSTR args, int nCmdSh
 	if (!RegisterClass(&wc))
 		return -1;
 	hwnd = CreateWindowEx(0, CLASS_NAME, L"FISICS", WS_OVERLAPPEDWINDOW, 100, 100, 500, 500, NULL, NULL, hInst, NULL);
-
 	/*   HWND hwnd = CreateWindowEx(
 			0,                              // Optional window styles.
 			CLASS_NAME,                     // Window class
@@ -127,9 +121,55 @@ LRESULT CALLBACK WindProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 		}
 		InvalidateRect(hwnd, &MainRect, false);
 		break;
+	case WM_MOUSEMOVE:
+	{
+		if (GET_KEYSTATE_WPARAM(wp) == VK_LBUTTON)
+		{
+			int mouseXPos = LOWORD(lp) - (RectSize / 2);
+			int mouseYPos = HIWORD(lp) - (RectSize / 2);
+			if ((mouseXPos > 0) && (mouseXPos < MainRect.right - RectSize) && (mouseYPos > 0) && (mouseYPos < MainRect.bottom - RectSize)) {
+				if (SpriteRect.top <= mouseYPos)  moveSprite(DOWN, mouseYPos - SpriteRect.top);
+				if (SpriteRect.left >= mouseXPos) moveSprite(LEFT, SpriteRect.left - mouseXPos);
+				if (SpriteRect.top >= mouseYPos)  moveSprite(UP, SpriteRect.top - mouseYPos);
+				if (SpriteRect.left <= mouseXPos) moveSprite(RIGHT, mouseXPos - SpriteRect.left);
+			}
+			if (SpriteRect.left <= MainRect.left + SPRITE_STEP) moveSprite(RIGHT, 20);
+			if (SpriteRect.top <= MainRect.top + SPRITE_STEP) moveSprite(DOWN, 20);
+			if (SpriteRect.right >= MainRect.right - SPRITE_STEP) moveSprite(LEFT, 20);
+			if (SpriteRect.bottom >= MainRect.bottom - SPRITE_STEP) moveSprite(UP, 20);
+			InvalidateRect(hwnd, &MainRect, false);
+		}
+		break;
+	}
+	case WM_MOUSEWHEEL:
+	{
+		if (GET_KEYSTATE_WPARAM(wp) == MK_SHIFT)
+		{
+			if (GET_WHEEL_DELTA_WPARAM(wp) > 0)
+			{
+				moveSprite(RIGHT, SPRITE_STEP);
+			}
+			else
+			{
+				moveSprite(LEFT, SPRITE_STEP);
+			}
+		}
+		else
+		{
+			if (GET_WHEEL_DELTA_WPARAM(wp) > 0)
+			{
+				moveSprite(UP, SPRITE_STEP);
+			}
+			else
+			{
+				moveSprite(DOWN, SPRITE_STEP);
+			}
+		}
+		InvalidateRect(hwnd, &MainRect, false);
+		break;
+	}
 	case WM_SIZE:
 		GetClientRect(hwnd, &MainRect);
-		//SetWindowSize(Rect.right - Rect.left, Rect.bottom - Rect.top);
 		break;
 	case WM_ERASEBKGND:
 		return 1;
@@ -141,9 +181,7 @@ LRESULT CALLBACK WindProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 }
 
 void moveSprite(DIRECTION direction, int offset) {
-
 	offset = getAllowedOffset(direction, offset);
-
 	switch (direction) {
 	case UP:
 		OffsetRect(&SpriteRect, 0, -offset);
@@ -163,7 +201,6 @@ void moveSprite(DIRECTION direction, int offset) {
 int getAllowedOffset(DIRECTION direction, int offset) {
 	LONG firstPosition;
 	LONG secondPosition;
-
 	switch (direction) {
 	case UP:
 		firstPosition = SpriteRect.top - offset;
@@ -182,10 +219,8 @@ int getAllowedOffset(DIRECTION direction, int offset) {
 		secondPosition = SpriteRect.right + offset;
 		break;
 	}
-
 	if ((secondPosition - firstPosition) > -1) {
 		return -10 * offset;
 	}
-
 	return offset;
 }
