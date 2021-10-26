@@ -1,2 +1,6 @@
 ﻿  laba1.1.cpp
+f:\Алексей\Учёба\5 сем\ОСиСП\laba1\OSiSP_Lab1-main\laba1.1\laba1.1\laba1.1.cpp(68,10): warning C4101: oldBitmap: неиспользованная локальная переменная
+f:\Алексей\Учёба\5 сем\ОСиСП\laba1\OSiSP_Lab1-main\laba1.1\laba1.1\laba1.1.cpp(67,9): warning C4101: MovableBitmap: неиспользованная локальная переменная
+f:\Алексей\Учёба\5 сем\ОСиСП\laba1\OSiSP_Lab1-main\laba1.1\laba1.1\laba1.1.cpp(65,19): warning C4101: hdcPic: неиспользованная локальная переменная
+f:\Алексей\Учёба\5 сем\ОСиСП\laba1\OSiSP_Lab1-main\laba1.1\laba1.1\laba1.1.cpp(223,10): warning C4101: hbm: неиспользованная локальная переменная
   laba1.1.vcxproj -> F:\Алексей\Учёба\5 сем\ОСиСП\laba1\OSiSP_Lab1-main\laba1.1\x64\Debug\laba1.1.exe

@@ -1,5 +1,11 @@
 ﻿#include <Windows.h>
 #include <stdlib.h>
+#include <gdiplus.h>
+
+#pragma comment(lib, "gdiplus.lib")
+using namespace std;
+
+bool StatusPicture;
 
 #define SPRITE_STEP 3
 #define DIRECTION int
@@ -9,21 +15,24 @@
 #define DOWN 12
 
 const wchar_t CLASS_NAME[] = L"MyWindowClass";
+const wchar_t PICTURE_NAME[] = L"C:\\Downloads\\eye22.png";
 const int RectSize = 50;
 const int XSprite = 100;
 const int YSprite = 100;
 
 RECT SpriteRect = { XSprite, YSprite, XSprite + RectSize, YSprite + RectSize };
 RECT MainRect;
+HBITMAP Picture;
 
 LRESULT CALLBACK WindProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
 void moveSprite(DIRECTION direction, int offset);
 int getAllowedOffset(DIRECTION direction, int offset);
+void moveBitmap(HDC hdc);
+HBITMAP pngFileToHbitmap(WCHAR* pngFilePath);
 
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PWSTR args, int nCmdShow)
 {
 	//MessageBox(NULL, L"HELLO", "meafecd", MB_OK);
-
 	HWND hwnd;
 	WNDCLASS wc = { };
 	wc.style = CS_HREDRAW | CS_VREDRAW;
@@ -38,22 +47,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PWSTR args, int nCmdSh
 
 	if (!RegisterClass(&wc))
 		return -1;
-	hwnd = CreateWindowEx(0, CLASS_NAME, L"FISICS", WS_OVERLAPPEDWINDOW, 100, 100, 500, 500, NULL, NULL, hInst, NULL);
-	/*   HWND hwnd = CreateWindowEx(
-			0,                              // Optional window styles.
-			CLASS_NAME,                     // Window class
-			L"Learn to Program Windows",    // Window text
-			WS_OVERLAPPEDWINDOW,            // Window style
-
-			// Size and position
-			CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-
-			NULL,       // Parent window
-			NULL,       // Menu
-			hInst,  // Instance handle
-			NULL        // Additional application data
-		);
-	*/
+	hwnd = CreateWindowEx(0, CLASS_NAME, L"MovebleSprite", WS_OVERLAPPEDWINDOW, 100, 100, 500, 500, NULL, NULL, hInst, NULL);
 	ShowWindow(hwnd, nCmdShow);
 	UpdateWindow(hwnd);
 	MSG msg = { };
@@ -68,8 +62,10 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, PWSTR args, int nCmdSh
 LRESULT CALLBACK WindProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
 	PAINTSTRUCT ps;
-	HDC hdc, hCmpDC;
+	HDC hdc, hCmpDC, hdcPic;
 	HBITMAP bitmap;
+	BITMAP MovableBitmap;
+	HGDIOBJ oldBitmap;
 	switch (msg)
 	{
 	case WM_PAINT:
@@ -86,21 +82,24 @@ LRESULT CALLBACK WindProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 		brush = CreateBrushIndirect(&br);
 		FillRect(hCmpDC, &MainRect, brush);
 		DeleteObject(brush);
-		br.lbStyle = BS_SOLID;
-		br.lbColor = 0x00ff00;
-		SpriteBrush = CreateBrushIndirect(&br);
-		FillRect(hCmpDC, &SpriteRect, SpriteBrush);
-		DeleteObject(SpriteBrush);
+		if (StatusPicture == true) moveBitmap(hCmpDC);
+		else
+		{
+			br.lbStyle = BS_SOLID;
+			br.lbColor = 0x00ff00;
+			SpriteBrush = CreateBrushIndirect(&br);
+			FillRect(hCmpDC, &SpriteRect, SpriteBrush);
+			DeleteObject(SpriteBrush);
+		}
 		SetStretchBltMode(hdc, COLORONCOLOR);
-		BitBlt(hdc, 0, 0, MainRect.right - MainRect.left, MainRect.bottom - MainRect.top, hCmpDC, 0, 0, SRCCOPY);
+		BitBlt(hdc, 0, 0, MainRect.right - MainRect.left, MainRect.bottom - MainRect.top, hCmpDC, 0, 0, SRCCOPY);;
 		DeleteDC(hCmpDC);
-		DeleteObject(bitmap);
-		hCmpDC = NULL;
 		EndPaint(hwnd, &ps);
 		break;
 	}
 	case WM_DESTROY:
 	{
+		DeleteObject(Picture);
 		PostQuitMessage(0);
 		break;
 	}
@@ -117,6 +116,10 @@ LRESULT CALLBACK WindProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 			break;
 		case VK_DOWN:
 			moveSprite(DOWN, SPRITE_STEP);
+			break;
+		case VK_SPACE:
+			if (StatusPicture == false) StatusPicture = true;
+			else StatusPicture = false;
 			break;
 		}
 		InvalidateRect(hwnd, &MainRect, false);
@@ -145,29 +148,20 @@ LRESULT CALLBACK WindProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	{
 		if (GET_KEYSTATE_WPARAM(wp) == MK_SHIFT)
 		{
-			if (GET_WHEEL_DELTA_WPARAM(wp) > 0)
-			{
-				moveSprite(RIGHT, SPRITE_STEP);
-			}
-			else
-			{
-				moveSprite(LEFT, SPRITE_STEP);
-			}
+			if (GET_WHEEL_DELTA_WPARAM(wp) > 0)	moveSprite(RIGHT, SPRITE_STEP);
+			else moveSprite(LEFT, SPRITE_STEP);
 		}
 		else
 		{
-			if (GET_WHEEL_DELTA_WPARAM(wp) > 0)
-			{
-				moveSprite(UP, SPRITE_STEP);
-			}
-			else
-			{
-				moveSprite(DOWN, SPRITE_STEP);
-			}
+			if (GET_WHEEL_DELTA_WPARAM(wp) > 0) moveSprite(UP, SPRITE_STEP);
+			else moveSprite(DOWN, SPRITE_STEP);
 		}
 		InvalidateRect(hwnd, &MainRect, false);
 		break;
 	}
+	case WM_CREATE:
+		Picture = pngFileToHbitmap((WCHAR*)PICTURE_NAME);
+		break;
 	case WM_SIZE:
 		GetClientRect(hwnd, &MainRect);
 		break;
@@ -223,4 +217,41 @@ int getAllowedOffset(DIRECTION direction, int offset) {
 		return -10 * offset;
 	}
 	return offset;
+}
+
+void moveBitmap(HDC hdc) {
+	HBITMAP hbm, receivedBitmap;
+
+	HDC tempDC;
+	BITMAP bitmap;
+	POINT  bitmapSize, zeroPoint;
+	tempDC = CreateCompatibleDC(hdc);
+	receivedBitmap = (HBITMAP)SelectObject(tempDC, Picture);
+	if (receivedBitmap) {
+		SetMapMode(tempDC, GetMapMode(hdc));
+		GetObject(Picture, sizeof(BITMAP), (LPSTR)&bitmap);
+		bitmapSize.x = bitmap.bmWidth;
+		bitmapSize.y = bitmap.bmHeight;
+		DPtoLP(hdc, &bitmapSize, 1);
+		zeroPoint.x = 0;
+		zeroPoint.y = 0;
+		DPtoLP(tempDC, &zeroPoint, 1);
+		BitBlt(hdc, SpriteRect.left, SpriteRect.top, bitmapSize.x, bitmapSize.y, tempDC, zeroPoint.x, zeroPoint.y, SRCCOPY);
+		SelectObject(tempDC, receivedBitmap);
+	}
+	DeleteDC(tempDC);
+}
+
+HBITMAP pngFileToHbitmap(WCHAR* pngFilePath) {
+	Gdiplus::GdiplusStartupInput StartupIntpu;
+	ULONG_PTR Token;
+	GdiplusStartup(&Token, &StartupIntpu, NULL);
+	HBITMAP convertedBitmap = NULL;
+	Gdiplus::Bitmap* bitmap = Gdiplus::Bitmap::FromFile(pngFilePath, false);
+	if (bitmap) {
+		bitmap->GetHBITMAP(RGB(204, 204, 238), &convertedBitmap);
+		delete bitmap;
+	}
+	Gdiplus::GdiplusShutdown(Token);
+	return convertedBitmap;
 }
