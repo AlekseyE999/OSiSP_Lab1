@@ -1,8 +1,11 @@
 ﻿#include <Windows.h>
 #include <stdlib.h>
 #include <gdiplus.h>
+#include <ctime>
+#include <chrono>
 
 #pragma comment(lib, "gdiplus.lib")
+#pragma comment(lib, "Msimg32.lib")
 using namespace std;
 
 bool StatusPicture;
@@ -13,12 +16,18 @@ bool StatusPicture;
 #define UP 4
 #define RIGHT 8
 #define DOWN 12
+#define IDT_TIMER1 1
+
+DIRECTION xDirection = RIGHT;
+DIRECTION yDirection = UP;
 
 const wchar_t CLASS_NAME[] = L"MyWindowClass";
-const wchar_t PICTURE_NAME[] = L"C:\\Downloads\\eye22.png";
+const wchar_t PICTURE_PATH[] = L"C:\\Downloads\\eye22.png";
+const int ellapsedTimeToMove = 100;
 const int RectSize = 50;
 const int XSprite = 100;
 const int YSprite = 100;
+auto lastAccess = std::chrono::system_clock::now();
 
 RECT SpriteRect = { XSprite, YSprite, XSprite + RectSize, YSprite + RectSize };
 RECT MainRect;
@@ -66,6 +75,9 @@ LRESULT CALLBACK WindProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	HBITMAP bitmap;
 	BITMAP MovableBitmap;
 	HGDIOBJ oldBitmap;
+	if (msg == WM_KEYDOWN || msg == WM_SIZE || msg == WM_MOUSEWHEEL) {
+		lastAccess = std::chrono::system_clock::now();
+	}
 	switch (msg)
 	{
 	case WM_PAINT:
@@ -92,6 +104,7 @@ LRESULT CALLBACK WindProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 			DeleteObject(SpriteBrush);
 		}
 		SetStretchBltMode(hdc, COLORONCOLOR);
+
 		BitBlt(hdc, 0, 0, MainRect.right - MainRect.left, MainRect.bottom - MainRect.top, hCmpDC, 0, 0, SRCCOPY);;
 		DeleteDC(hCmpDC);
 		EndPaint(hwnd, &ps);
@@ -128,6 +141,7 @@ LRESULT CALLBACK WindProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	{
 		if (GET_KEYSTATE_WPARAM(wp) == VK_LBUTTON)
 		{
+			lastAccess = std::chrono::system_clock::now();
 			int mouseXPos = LOWORD(lp) - (RectSize / 2);
 			int mouseYPos = HIWORD(lp) - (RectSize / 2);
 			if ((mouseXPos > 0) && (mouseXPos < MainRect.right - RectSize) && (mouseYPos > 0) && (mouseYPos < MainRect.bottom - RectSize)) {
@@ -160,7 +174,8 @@ LRESULT CALLBACK WindProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 		break;
 	}
 	case WM_CREATE:
-		Picture = pngFileToHbitmap((WCHAR*)PICTURE_NAME);
+		SetTimer(hwnd, IDT_TIMER1, ellapsedTimeToMove, ((TIMERPROC) nullptr));
+		Picture = pngFileToHbitmap((WCHAR*)PICTURE_PATH);
 		break;
 	case WM_SIZE:
 		GetClientRect(hwnd, &MainRect);
@@ -168,6 +183,40 @@ LRESULT CALLBACK WindProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 	case WM_ERASEBKGND:
 		return 1;
 		break;
+	case WM_TIMER:
+	{
+		auto currentTime = std::chrono::system_clock::now();
+		std::chrono::duration<double> elapsed_seconds = currentTime - lastAccess;
+		if (elapsed_seconds.count() > 1)
+		{
+			int Offset = SPRITE_STEP;
+			if (SpriteRect.left <= MainRect.left + SPRITE_STEP)
+			{
+				xDirection = RIGHT;
+				moveSprite(RIGHT, Offset);
+			}
+			else if (SpriteRect.right >= MainRect.right - SPRITE_STEP)
+			{
+				xDirection = LEFT;
+				moveSprite(LEFT, Offset);
+			}
+			else	moveSprite(xDirection, Offset);
+			if (SpriteRect.bottom >= MainRect.bottom - SPRITE_STEP)
+			{
+				yDirection = UP;
+				moveSprite(UP, Offset);
+			}
+			else if (SpriteRect.top <= MainRect.top + SPRITE_STEP)
+			{
+				yDirection = DOWN;
+				moveSprite(DOWN, Offset);
+
+			}
+			else	moveSprite(yDirection, Offset);
+		}
+		InvalidateRect(hwnd, &MainRect, false);
+		break;
+	}
 	default:
 		return DefWindowProc(hwnd, msg, wp, lp);
 	}
@@ -236,7 +285,7 @@ void moveBitmap(HDC hdc) {
 		zeroPoint.x = 0;
 		zeroPoint.y = 0;
 		DPtoLP(tempDC, &zeroPoint, 1);
-		BitBlt(hdc, SpriteRect.left, SpriteRect.top, bitmapSize.x, bitmapSize.y, tempDC, zeroPoint.x, zeroPoint.y, SRCCOPY);
+		TransparentBlt(hdc, SpriteRect.left, SpriteRect.top, bitmapSize.x, bitmapSize.y, tempDC, zeroPoint.x, zeroPoint.y, bitmapSize.x, bitmapSize.y, 0xEECCCC);
 		SelectObject(tempDC, receivedBitmap);
 	}
 	DeleteDC(tempDC);
@@ -249,7 +298,7 @@ HBITMAP pngFileToHbitmap(WCHAR* pngFilePath) {
 	HBITMAP convertedBitmap = NULL;
 	Gdiplus::Bitmap* bitmap = Gdiplus::Bitmap::FromFile(pngFilePath, false);
 	if (bitmap) {
-		bitmap->GetHBITMAP(RGB(204, 204, 238), &convertedBitmap);
+		bitmap->GetHBITMAP(0xEECCCC, &convertedBitmap);
 		delete bitmap;
 	}
 	Gdiplus::GdiplusShutdown(Token);
